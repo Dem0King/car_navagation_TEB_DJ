@@ -1,0 +1,48 @@
+DWAPlannerROS:  # DWA 局部路径规划器参数配置
+
+# 机器人配置参数
+  max_vel_x: 5.0  # 最大前进速度（m/s）
+  min_vel_x: -5.0  # 最小后退速度（m/s）
+  acc_lim_x: 2.0  # 前进加速度限制（m/s²）
+
+  max_vel_y: 5.0  # 最大横向速度（m/s）
+  min_vel_y: -5.0  # 最小横向速度（m/s）
+  acc_lim_y: 2.0  # 横向加速度限制（m/s²）
+
+  max_vel_theta: 1.0  # 最大旋转速度（rad/s）
+  min_vel_theta: 1.2  # 最小旋转速度（rad/s）
+  acc_lim_theta: 1.0  # 旋转加速度限制（rad/s²）
+
+  max_trans_vel: 10.0  # 最大平移速度（m/s）
+  min_trans_vel: 1.0  # 最小平移速度（m/s）
+  trans_stopped_vel: 0.1  # 平移停止速度阈值（m/s）
+
+  xy_goal_tolerance: 0.15  # 目标点 XY 方向容忍距离（米）
+  yaw_goal_tolerance: 0.10  # 目标点角度容忍范围（弧度）
+  latch_xy_goal_tolerance: false  # 是否锁定 XY 容忍距离
+
+# 前向仿真参数
+  sim_time: 2  # 仿真时间（秒）
+  vx_samples: 10  # 前进速度采样数
+  vy_samples: 10  # 横向速度采样数
+  vth_samples: 10  # 旋转速度采样数
+  controller_frequency: 10.0  # 控制器运行频率（Hz）
+
+# 轨迹评分参数
+  path_distance_bias: 32.0  # 路径距离权重
+  goal_distance_bias: 24.0  # 目标距离权重
+  occdist_scale: 0.03  # 障碍物距离权重
+  forward_point_distance: 0.5  # 前向点距离（米）
+  stop_time_buffer: 0.25  # 停止缓冲时间（秒）
+  scaling_speed: 0.25  # 缩放速度（m/s）
+  max_scaling_factor: 0.2  # 最大缩放因子
+
+# 振荡防止参数
+  oscillation_reset_dist: 0.05  # 振荡重置距离（米）
+
+# 调试参数
+  publish_traj_pc: true  # 是否发布轨迹点云
+  publish_cost_grid_pc: true  # 是否发布代价网格点云
+
+# 差速驱动机器人配置
+  holonomic_robot: true  # 是否为全向机器人

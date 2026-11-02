@@ -1,0 +1,52 @@
+# ============================================================
+# Costmap 通用参数 - 国青赛优化版
+# ============================================================
+
+obstacle_range: 3.0       # 障碍物检测范围(米)
+raytrace_range: 3.0       # 射线追踪范围(米)
+
+# 机器人轮廓 (多边形顶点, base_link坐标系, 顺时针)
+# ⚠️ 必须与实际机器人尺寸匹配!
+# 实测: 车头到雷达 0.14, 车尾到雷达 0.19
+# 雷达 laser_link 在 base_link 前方 0.06 (URDF: laser_joint xyz="0.06 0 0.18")
+#   → 换算到 base_link: 前 +0.20 / 后 -0.13, 这里取 0.215 / -0.135 留 1.5cm / 0.5cm 余量
+# 内切半径 0.135, 外接半径 0.262 (由 footprint.cpp 自动算出, 两个 costmap 的膨胀参数都跟它有关)
+# ⚠️ 与TEB规划器的 footprint_model.vertices 必须保持一致, 改一个要改两个!
+footprint: [[0.215, 0.145], [0.215, -0.145], [-0.135, -0.145], [-0.135, 0.145]]
+footprint_padding: 0.0
+robot_radius: 0.10        # 圆形近似半径(仅当footprint未设置时使用)
+
+# ⚠️ inflation_radius / cost_scaling_factor 故意不放在这里!
+# 这两个代价地图的职责不同, 必须分开设:
+#   global_costmap ← 决定"全局路径离墙多远"  → 见 global_costmap_params.yaml
+#   local_costmap  ← 决定"TEB 眼里的障碍物有多厚" → 见 local_costmap_params.yaml
+# 放在这里的值会被上面两个文件覆盖, 写在这儿只会让人两边一起改错。
+
+map_type: costmap         # 代价地图类型
+
+# 观测源: scan(真激光) + virtual_wall(主控脚本发的"封路点云")
+observation_sources: scan virtual_wall
+
+scan:
+  sensor_frame: laser_link  # 激光传感器坐标系
+  data_type: LaserScan      # 数据类型
+  topic: scan_filtered      # 订阅经过过滤的激光数据
+  marking: true             # 标记障碍物
+  clearing: true            # 清除自由空间
+
+# ============================================================
+# 虚拟墙 —— 方案B的核心
+# ============================================================
+# 主控脚本(navigation_multi_goals.py)在"某条路走不通"时会往 /virtual_wall 发一片
+# 点云, 代价地图把它当障碍物 → 全局规划器只能换另一条路。地形随机也能用, 因为
+# 它是"撞了才知道", 不需要提前知道布局。
+#   marking: true  只标记
+#   clearing: false 不擦除(否则会被真激光的射线清掉)
+# 取消封路: 往 /virtual_wall 发一帧空点云即可(脚本里的 clear_walls())
+virtual_wall:
+  data_type: PointCloud2    # 点云类型
+  topic: /virtual_wall      # 封路点云话题
+  marking: true             # 标记障碍物
+  clearing: false           # 不擦除
+  obstacle_range: 5.0       # 标记范围(米)
+  raytrace_range: 5.0       # 射线清理范围(米)

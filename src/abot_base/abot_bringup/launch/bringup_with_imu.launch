@@ -1,0 +1,49 @@
+<launch>
+    <!-- output 从 screen 改成 log: 驱动每收到一次 cmd_vel 就打 2 行(20Hz → 每秒40行),
+         刷屏本身既费 CPU(终端重绘)又把日志淹掉。改 log 后信息照样进日志文件, 只是不刷屏。 -->
+    <node name="abot_driver" pkg="abot_bringup" type="abot_driver" output="log">
+        <rosparam file="$(find abot_bringup)/params/base_params_with_imu.yaml" command="load"/>
+    </node>
+
+    <node pkg="abot_imu" type="abot_imu" name="abot_imu" output="screen" respawn="false">
+        <rosparam>
+            imu/accelerometer_bias: {x: 0.005436, y: 0.014684, z: -0.395418}
+            imu/gyroscope_bias: {x: -0.035592, y: 0.080670, z: 0.001216}
+        </rosparam>
+        <param name="imu/perform_calibration" value="true" />
+    </node>
+
+    <!-- 只保留 base_link -> imu_link。
+         ⚠️ 原来这里还有一条 laser_link -> imu_link, 会让 imu_link 同时有两个父坐标系;
+            tf2 里每个子帧只有一个 parent 槽位, 两条 40ms 的 static publisher 会互相覆盖,
+            父节点随到达顺序来回跳。雷达的 base_link -> laser_link 已由 URDF 定义
+            (laser_joint xyz="0.06 0 0.18"), 不需要在这里再发。 -->
+    <node pkg="tf" type="static_transform_publisher" name="base_imu_to_base_link"
+        args="0.04 0 0 0 0  0 /base_link /imu_link 40" />
+
+
+    <node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter_madgwick" output="screen" respawn="false" >
+        <param name="use_mag" value="false" />
+        <param name="publish_tf" value="false" />
+    </node>
+
+   <node pkg="robot_pose_ekf" type="robot_pose_ekf" name="robot_pose_ekf" output="screen">
+        <param name="output_frame" value="odom" />
+        <param name="base_footprint_frame" value="base_footprint"/>
+        <!-- 200 → 50: 滤波器循环 200Hz 对定位没有额外收益(AMCL 10Hz / 控制 30Hz),
+             徒增 CPU。50Hz 已远高于下游使用频率。 -->
+        <param name="freq" value="50.0"/>
+        <param name="sensor_timeout" value="1.0"/>  
+        <param name="odom_used" value="true"/>
+        <param name="imu_used" value="true"/>
+        <param name="vo_used" value="false"/>
+        <param name="debug" value="false"/>
+        <remap from="odom" to="wheel_odom" />
+        <remap from="imu_data" to="imu/data" />
+    </node> 
+
+    <node pkg="abot_bringup" type="odom_ekf.py" name="odom_ekf" output="screen">
+        <remap from="input" to="robot_pose_ekf/odom_combined"/>
+        <remap from="output" to="odom"/>
+    </node> 
+</launch>

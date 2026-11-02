@@ -1,0 +1,6 @@
+<launch>
+    <!-- output: screen → log (同上, 驱动刷屏太吵) -->
+    <node name="abot_driver" pkg="abot_bringup" type="abot_driver" output="log">
+        <rosparam file="$(find abot_bringup)/params/base_params.yaml" command="load"/>
+    </node>
+</launch>

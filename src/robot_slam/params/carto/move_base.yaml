@@ -1,0 +1,67 @@
+# ============================================================
+# move_base 全局参数 - 国青赛优化版
+# ============================================================
+
+shutdown_costmaps: false          # 空闲时关闭代价地图 (保持开启, 随时准备)
+
+controller_frequency: 30.0        # 局部控制器频率(Hz)
+                                  # 20 → 30: 每 1.3cm 一条速度指令(20Hz 是 2cm)。
+                                  # ★ 指令之间的"盲走"距离直接决定窄处会不会蹭:
+                                  #   走廊单边只有 6cm 余量, 20Hz 的 2cm 盲走占比太大。
+                                  #   关掉 rviz/whoopsie 后腾出 3 个核, 这点开销吃得下。
+                                  # 35 → 20: 省 43% 的 TEB 计算量。
+                                  # 不影响过窄缝: 能不能过取决于轨迹几何(footprint +
+                                  # min_obstacle_dist + 走廊宽度), 与每秒重算几次无关;
+                                  # 频率只影响响应延迟和指令平滑度。0.4m/s 下 20Hz 每次走 2cm,
+                                  # 40cm 走廊单边 5cm 余量足够。TEB 官方示例也是 10~20Hz。
+controller_patience: 10.0         # 控制器超时等待(秒)
+
+planner_frequency: 3.0            # 全局规划器频率(Hz)
+planner_patience: 5.0             # 路径规划器超时等待(秒)
+
+# ============================================================
+# 恢复行为 —— 只保留一次"清代价地图"
+# ============================================================
+# 不写 recovery_behaviors 的话, move_base 默认加载 4 个:
+#   conservative_reset → rotate_recovery → aggressive_reset → rotate_recovery
+# 每个之间要等 controller_patience 秒才触发 → 一个走不通的目标点能烧 60 秒以上。
+# 你之前看到的"清代价地图→原地旋转"就是这个默认列表, 不是 TEB 的行为。
+# 现在显式只给一个 → 失败后清一次地图再试, 还不行就 abort 交回主控脚本。
+recovery_behaviors:
+  - name: 'conservative_reset'
+    type: 'clear_costmap_recovery/ClearCostmapRecovery'
+conservative_reset:
+  # ⚠️ reset_distance 是"以机器人为中心、边长多少的正方形以内的区域保留不清",
+  #    清的是这个正方形以外的部分(见 clear_costmap_recovery.cpp)。
+  #    静态地图里没有挡板, 全靠激光实时标, 清太狠等于把挡板记忆忘掉 → 别设小。
+  reset_distance: 3.0
+  layer_names: ["obstacle_layer"]
+
+# 振荡检测: 机器人 5 秒内位移不足 oscillation_distance(0.10m) → 判振荡 → 触发恢复行为
+# → 恢复用完还不动就 abort 整个目标。上一轮任务点 31/32/50 全是被它判死的, 而那时
+# 车其实还在慢慢蹭 → 5.0 太急, 放宽到 12.0 (单腿超时 25s, 放得下)。
+# ⚠️ 别和 TEB 自己那套振荡参数(teb params:163-167)搞混, 那是另一回事, 会自己过期。
+oscillation_timeout: 12.0
+oscillation_distance: 0.10        # 振荡判定距离阈值(米)
+
+base_local_planner: "teb_local_planner/TebLocalPlannerROS"   # 局部规划器
+base_global_planner: "global_planner/GlobalPlanner"           # 全局规划器
+
+# ============================================================
+# make_plan 服务 (主控脚本用它做"目标点吸附")
+# ============================================================
+# 主控在发目标前会调 /move_base/make_plan, 让规划器在目标点周围找一个
+# "真正可达的最近点"(服务内部会以 0.06m 步长一圈圈向外搜, 见 move_base.cpp 的
+# planService)。用来治"任务点被障碍物膨胀盖住 → Failed to get a plan"。
+#
+# ⚠️ 必须设 false: 默认的 true 会把"原来那个够不着的目标点"又追加到路径末尾
+#    (move_base.cpp:414), 那样脚本从路径末尾就看不出真正的可达点了。
+#    设 false 后, 路径的最后一点一定就是可达点。
+make_plan_add_unreachable_goal: false
+#
+# ⚠️ 必须设 false: 默认的 true 会让服务在规划前把"机器人周围 0.524m×0.524m 的一块"
+#    直接设成自由空间(move_base.cpp 的 clearCostmapWindows, clearing_radius = 外接半径)。
+#    而任务点之间只隔 0.38m —— 后一个目标点就落在被清掉的那块里 → 服务说"可达",
+#    但 move_base 真规划时不做这个清除 → "服务说能到、实际到不了", 吸附就白做了。
+#    (实测: 一整场只有任务点50 触发了吸附, 因为它的前一个点离它有 0.82m, 在清除范围外。)
+make_plan_clear_costmap: false

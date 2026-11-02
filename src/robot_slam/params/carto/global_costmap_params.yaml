@@ -1,0 +1,35 @@
+# 全局代价地图配置
+# ⚠️ 本文件由 move_base.launch.xml 以 ns="global_costmap" 加载,
+#    所以这里【不要】再写顶层的 global_costmap: 键, 否则会多套一层命名空间,
+#    参数会落到 /move_base/global_costmap/global_costmap/... 而节点读不到。
+global_frame: map  # 全局坐标系，通常为 "map"
+robot_base_frame: base_link  # 机器人基座坐标系
+
+update_frequency: 6.0  # 更新频率（Hz）
+publish_frequency: 1.0  # 发布频率（Hz）  3 → 1: 只给RViz看; 736×736每帧54万格, 3Hz就是1.6MB/s
+resolution: 0.02  # 地图分辨率（每格代表的实际距离，单位：米）0.1
+
+static_map: true  # 是否使用静态地图
+
+# ============================================================
+# 全局路径的"硬阻挡带"由这里决定
+# ============================================================
+# 机制 (costmap_2d 源码 inflation_layer.h):
+#   cost = 254                距离==0 (障碍格本身)
+#   cost = 253                距离 <= min(inflation_radius, 内切半径0.135) → GlobalPlanner 判不可通行
+#   cost = 252*exp(-csf*(d-0.135))   仅当 inflation_radius > 0.135 时才有这段软梯度
+#   膨胀半径以外的格子完全不加代价 (inflation_layer.cpp 的 enqueue 直接 return)
+#
+# ⚠️ 0.25 → 0.10 的原因 (2026-10-05 实测日志):
+#   40cm 走廊 − 两侧各 0.135 硬阻挡带 = 可走宽度只剩 0.13m。挡板被激光标厚一点、
+#   或者走到拐角两个方向一起挤, 这条通道就断了 → 全局规划器报 Failed to get a plan,
+#   车卡死在任务点区(31/32/41 全灭, 整场 218 秒有 100 秒浪费在失败的点上)。
+#   降到 0.10 → 可走宽度 0.16m, 目标点可达门槛从 9.5cm 降到 6.5cm。
+#
+# 为什么降到内切半径以下也安全:
+#   全局规划器本来就是"点机器人 + 膨胀"的简化模型, 真正保证离墙距离的是 TEB ——
+#   它有 polygon footprint + min_obstacle_dist, 且 global_plan_viapoint_sep=-1 /
+#   weight_viapoint=1, 允许它偏离全局路径。全局路径只管"大方向走哪条廊道"。
+#   万一全局选了一条物理上过不去的路, 主控脚本的虚拟墙(方案B)会封路逼它换。
+inflation_radius: 0.10
+cost_scaling_factor: 3.5

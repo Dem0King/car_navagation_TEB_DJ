@@ -1,0 +1,18 @@
+# ROS编译产物
+build/
+devel/
+logs/
+install/
+
+# Python缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE配置
+.vscode/
+.idea/
+
+# rosbag数据包
+*.bag
+*.bag.active

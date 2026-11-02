@@ -1,0 +1,5 @@
+<launch>
+    <node name="asrpro_node" pkg="abot_sr" type="asrpro.py" output="screen">
+        <param name="start" type="int" value="255" />
+    </node>
+</launch>

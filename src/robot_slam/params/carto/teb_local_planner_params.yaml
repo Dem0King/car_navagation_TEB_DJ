@@ -1,0 +1,187 @@
+TebLocalPlannerROS:
+
+  ############################################################
+  # 坐标和里程计
+  ############################################################
+
+  odom_topic: /wheel_odom
+  map_frame: map
+
+
+  ############################################################
+  # 轨迹参数
+  ############################################################
+
+  teb_autosize: true
+  # 0.25 → 0.18: 轨迹的时间分辨率更细(每 0.18 秒一个位姿点, 原来是 0.25),
+  # 轨迹更贴合、窄处更不容易歪。开销换质量, 现在 CPU 有余量。
+  dt_ref: 0.25
+  dt_hysteresis: 0.1
+
+  global_plan_overwrite_orientation: false
+
+  allow_init_with_backwards_motion: true
+  # 1.8 → 1.5: 局部代价地图是 3.0×3.0(机器人在中心, 前后左右各 ±1.5m)。
+  # lookahead 超过 1.5, TEB 的局部目标就跑到代价地图外面了 —— 那里它看不见障碍。
+  # 想要更长的前瞻, 必须先把局部地图放大(边长 ≈ 2×lookahead)。
+  max_global_plan_lookahead_dist: 1.5 # 1.8 1.2
+  global_plan_viapoint_sep: -1
+  global_plan_prune_distance: 0.25
+  exact_arc_length: false
+  feasibility_check_no_poses: 5
+  publish_feedback: false
+
+
+  ############################################################
+  # 速度限制
+  # 比上一版快一点，但不到最早那版
+  ############################################################
+
+  # max_vel_x: 0.22
+  # max_vel_x_backwards: 0.12
+  # max_vel_y: 0.15
+  # max_vel_theta: 0.60
+
+  # acc_lim_x: 0.45
+  # acc_lim_y: 0.40
+  # acc_lim_theta: 0.90
+
+  max_vel_x: 0.40
+  max_vel_x_backwards: 0.12
+  max_vel_y: 0.35
+  max_vel_theta: 1.00
+
+  acc_lim_x: 0.8 # 0.6
+  acc_lim_y: 0.7 # 0.55
+  acc_lim_theta: 1.20 # 1.10
+
+  ############################################################
+  # 目标容差
+  ############################################################
+
+  # 两段式停靠: move_base只需到达预对接点(0.35m外), 0.10m容差足够
+  # 精确对接由 competition_main.py 的 dock() 函数接管
+  xy_goal_tolerance: 0.08 # 0.10
+  yaw_goal_tolerance: 0.12 # 0.15
+  free_goal_vel: false
+  complete_global_plan: true
+
+
+  ############################################################
+  # 全向底盘
+  ############################################################
+
+  min_turning_radius: 0.0
+  wheelbase: 0.0
+  cmd_angle_instead_rotvel: false
+
+  weight_kinematics_nh: 0.0
+  weight_kinematics_forward_drive: 0.0
+  weight_kinematics_turning_radius: 0.0
+
+
+  ############################################################
+  # 机器人 footprint
+  ############################################################
+
+  # ⚠️ 必须与 costmap_common_params.yaml 的 footprint 完全一致, 改一个要改两个!
+  # 有了 polygon 模型, min_obstacle_dist 量的是"多边形边缘到障碍"的距离, 不是中心到障碍
+  footprint_model:
+    type: "polygon"
+    vertices: [[0.215, 0.14], [0.215, -0.14], [-0.135, -0.14], [-0.135, 0.14]]
+
+
+  ############################################################
+  # 障碍物约束
+  # 保持上次降低后的障碍物权重
+  ############################################################
+
+  # 障碍物距离: 挡板可能紧贴任务点, 巡航时保持安全距离
+  # min_obstacle_dist 是软约束(优化惩罚), 挤不下时 TEB 会硬挤过去, 不会像硬约束那样直接卡死,
+  # 所以可以给得比出发区余量大 —— 宽的地方离墙远, 窄的地方照样能过。
+  # 实测离墙距离 ≈ min_obstacle_dist + 0.03~0.04 (局部代价地图 253 格的外推量)
+  min_obstacle_dist: 0.03 # 0.06 0.02
+  # ⚠️ inflation_dist 必须显著大于 min_obstacle_dist, TEB 才会建立 EdgeInflatedObstacle:
+  #    源码里判断的是 inflation_dist > min_obstacle_dist
+  #    原来 0.02/0.03 只有 1cm 惩罚带, weight_inflation 等于没生效
+  #    而且这两个值相等/接近时, weight_inflation 调多大都没用
+  # 0.15 → 0.13 (实测定下来的值): 40cm 走廊里车边离墙只有 0.05m, 而 0.15 的期望在
+  # 走廊里【永远无法满足】, 两侧同时永久惩罚 → 优化器算出的轨迹通不过可行性检查
+  # (313 条 "trajectory is not feasible" 的根)。
+  # 0.13 的实测表现: 单通道窄缝能过去了, 代价是会蹭着障碍过 —— 在单边余量只有
+  # 2.5~5cm、而 AMCL 定位误差本身就有 2~5cm 的走廊里, 刮蹭是物理极限的必然结果,
+  # 调这个值治不了根。"能过" 是第一位的。
+  # 想再少刮一点的两个方向: weight_inflation 1.0 → 0.4 (降低它的话语权, 不改期望值),
+  # 或 max_vel_x 0.40 → 0.30 (走廊里慢一点, 定位误差的影响小一点)。
+  inflation_dist: 0.14 # 0.12 0.10 0.15 0.22 0.03
+
+  include_costmap_obstacles: true
+  costmap_obstacles_behind_robot_dist: 0.35
+  obstacle_poses_affected: 25
+
+
+  ############################################################
+  # 优化器
+  ############################################################
+
+  # 5/4 → 7/5 (共 20 → 35 次迭代): 优化器收敛更好 → "trajectory is not feasible"
+  # 会明显减少(那个卡顿就是它引起的)。开销约 1.75 倍, 腾出 CPU 后完全吃得下。
+  no_inner_iterations: 7
+  no_outer_iterations: 5
+  optimization_activate: true
+  optimization_verbose: false
+
+  penalty_epsilon: 0.03
+
+  # 保持适度速度软约束
+  weight_max_vel_x: 3
+  weight_max_vel_y: 3
+  weight_max_vel_theta: 6
+
+  weight_acc_lim_x: 1.0
+  weight_acc_lim_y: 1.0
+  weight_acc_lim_theta: 5.0
+
+  # 1.5 → 1.0 (防刮蹭): 这是"赶时间"的权重。降低后优化器不再急着抄近路, 更愿意选
+  # 净空大的轨迹 —— 完全不碰走廊可行性, 零风险。
+  # (刮蹭的根因: 40cm 走廊装 28cm 车, 车边离墙只有 6cm, 而 TEB 实际要求的净空是
+  #  min_obstacle_dist 0.03 + penalty_epsilon 0.02 = 5cm → 余量只剩 1cm, 而 AMCL
+  #  定位误差本身就有 2~5cm, 所以"有概率蹭"。)
+  # 还不够的话按这个顺序再上: max_vel_x 0.40→0.30、max_vel_theta 1.0→0.6。
+  weight_optimaltime: 1.5
+  weight_shortest_path: 0
+
+  weight_obstacle: 40
+  weight_inflation: 1.0   # 0.2 → 1.0 (现在 inflation_dist 有 0.16 的惩罚带, 这个权重才起作用)
+  weight_viapoint: 1
+
+
+  ############################################################
+  # Homotopy
+  ############################################################
+
+  # 地形随机 → 不能加固定路点, 只能让 TEB 在运行时自己"比选路线":
+  # 它会在局部代价地图里生成多条拓扑不同的候选路径, 各自优化一遍, 按代价
+  # (含障碍惩罚)挑最可行的那条 —— 错位缝那条因为拐角处要转头, 障碍惩罚会
+  # 很大; 直缝那条不会 → 于是自己就选直缝了。
+  # 方案A(同伦类规划)已放弃: 机制本身是生效的(日志里 "Parallel planning in
+  # distinctive topologies enabled"), 但算力扛不住 —— 控制周期被拖到 0.2~2.0 秒,
+  # 车根本收不到指令, 连直缝都过不去。降到 2 类同样不行。
+  # 改用方案B: 走不通就在主控脚本里把那条缝封掉, 逼规划器换另一条路。
+  enable_homotopy_class_planning: false
+  enable_multithreading: true
+  max_number_classes: 2
+
+
+  ############################################################
+  # 恢复行为
+  ############################################################
+
+  shrink_horizon_backup: true
+  shrink_horizon_min_duration: 5
+
+  oscillation_recovery: true
+  oscillation_v_eps: 0.03
+  oscillation_omega_eps: 0.08
+  oscillation_recovery_min_duration: 5
+  oscillation_filter_duration: 5

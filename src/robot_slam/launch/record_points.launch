@@ -1,0 +1,35 @@
+<launch>
+  <!--
+    点位采集独立启动文件 (单独用, 不要和 6-mission.sh 同时跑, 否则两个 abot_driver 抢串口)。
+    启动: 底盘+IMU+EKF+雷达 → 地图 → AMCL → RViz → 采点工具。
+
+    ⚠️ 与 6-mission.sh 保持同一套 bringup (robot_with_imu), 这样 TF 链和你比赛时一致:
+         odom → base_footprint (robot_pose_ekf) → base_link (URDF)
+       不要改回 bringup.launch: 驱动 publish_tf=true 会发 odom→base_link, 和 URDF 的
+       base_footprint→base_link 撞成两个父节点。
+
+    用法:
+      1. roslaunch robot_slam record_points.launch
+      2. RViz 里用 2D Pose Estimate 把初始位姿对准 (激光和地图重合)
+      3. 把车开到目标位姿 → 在 record_points 那个终端按回车
+         或者在 RViz 用 Publish Point 点地图
+      4. 把打印出来的 (x, y, yaw) 粘到 navigation_multi_goals.py
+  -->
+  <arg name="map_name" default="my_lab.yaml"/>
+
+  <!-- 底盘 + IMU/EKF + 模型 + 雷达(含 scan_filtered) -->
+  <include file="$(find abot_bringup)/launch/robot_with_imu.launch"/>
+
+  <!-- 地图 + 定位 -->
+  <node name="map_server" pkg="map_server" type="map_server"
+        args="$(find robot_slam)/maps/$(arg map_name)"/>
+  <include file="$(find robot_slam)/launch/include/amcl.launch.xml"/>
+
+  <!-- 可视化: view_navigation.rviz 的 Fixed Frame 是 map, 且自带 Publish Point 工具 -->
+  <node name="rviz" pkg="rviz" type="rviz"
+        args="-d $(find robot_slam)/rviz/view_navigation.rviz"/>
+
+  <!-- 采点脚本 -->
+  <node name="record_points" pkg="robot_slam" type="record_points.py"
+        output="screen"/>
+</launch>

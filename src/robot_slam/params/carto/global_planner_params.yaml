@@ -1,0 +1,30 @@
+# ============================================================
+# 全局路径规划器参数 - 国青赛优化版
+# ============================================================
+
+GlobalPlanner:
+  old_navfn_behavior: false    # 不使用旧版navfn行为
+  use_quadratic: true          # 使用二次近似计算势场
+  use_dijkstra: true           # 使用Dijkstra算法 (比A*更稳定)
+  # true = 用 GridPath(沿网格边逐格回溯), false = 用 GradientPath(沿负梯度下降)
+  # ⚠️ false 时日志会刷 "NO PATH!" + "Failed to get a plan from potential when a
+  #    legal potential was found" —— 梯度法在"高代价平台区"(=膨胀带里)会原地打转
+  #    走不回起点。你的场地是 40cm 走廊 + 全局膨胀硬阻挡带 0.135, 机器人基本一直
+  #    站在膨胀带边上, 所以这个失效是必现的。GridPath 不需要梯度收敛, 不会出这个问题。
+  #    副作用: 路径变成 8 连通的网格折线(略有锯齿), TEB 会自己抹平。
+  use_grid_path: false
+
+  allow_unknown: true          # 允许规划通过未知区域
+  planner_window_x: 0.0        # 规划窗口X (0=全图)
+  planner_window_y: 0.0        # 规划窗口Y (0=全图)
+  default_tolerance: 0.15      # 目标点容忍半径(米)
+                               # 从0.50降到0.15, 提高全局路径到达精度
+                               # 配合两段式停靠, 全局规划需更精确到达预对接点
+
+  publish_scale: 100           # 势场代价地图缩放因子
+  planner_costmap_publish_frequency: 0.0  # 势场发布频率(0=不发布)
+
+  lethal_cost: 253             # 致命障碍物代价
+  neutral_cost: 50             # 中性区域代价
+  cost_factor: 3.0             # 代价缩放因子
+  publish_potential: true      # 发布势场代价地图

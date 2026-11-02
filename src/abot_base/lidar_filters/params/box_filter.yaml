@@ -1,0 +1,48 @@
+# scan_filter_chain:
+# - name: box_filter
+#   type: laser_filters/LaserScanBoxFilter
+#   params:
+#     box_frame: laser_link
+#     min_x: -0.15
+#     max_x: 0.15
+#     min_y: -0.15
+#     max_y: 0.15
+#     min_z: -0.1
+#     max_z: 0.1
+
+# - name: shadow_filter
+#   type: laser_filters/LaserScanFootprintFilter
+#   params:
+#     footprint: [[-0.3, -0.2], [-0.3, 0.2], [0.3, 0.2], [0.3, -0.2]]
+
+# - name: range_filter
+#   type: laser_filters/LaserScanRangeFilter
+#   params:
+#     lower_threshold: 0.1
+#     upper_threshold: 10.0
+#     use_message_range_limits: false
+
+scan_filter_chain:
+- name: box_filter
+  type: laser_filters/LaserScanBoxFilter
+  params:
+    box_frame: laser_link
+    min_x: -0.15
+    max_x: 0.15
+    min_y: -0.15
+    max_y: 0.15
+    min_z: -0.1
+    max_z: 0.1
+
+- name: shadow_filter
+  type: laser_filters/LaserScanFootprintFilter
+  params:
+    inscribed_radius: 0.15
+    footprint: [[-0.3, -0.2], [-0.3, 0.2], [0.3, 0.2], [0.3, -0.2]]
+
+- name: range_filter
+  type: laser_filters/LaserScanRangeFilter
+  params:
+    lower_threshold: 0.1
+    upper_threshold: 10.0
+    use_message_range_limits: false

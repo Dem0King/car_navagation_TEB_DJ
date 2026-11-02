@@ -1,0 +1,28 @@
+# 局部代价地图配置
+# ⚠️ 本文件由 move_base.launch.xml 以 ns="local_costmap" 加载,
+#    所以这里【不要】再写顶层的 local_costmap: 键, 否则会多套一层命名空间,
+#    参数会落到 /move_base/local_costmap/local_costmap/... 而节点读不到。
+global_frame: odom  # 全局坐标系，通常为 "odom"
+robot_base_frame: base_link  # 机器人基座坐标系
+
+update_frequency: 5.0  # 更新频率（Hz）  10 → 5: 日志里 local 的 map update 慢到 2 秒
+publish_frequency: 10.0  # 发布频率（Hz）  蟹行对接的动态防撞要用它
+                         # ⚠️ 实际发布 = min(update_frequency 5Hz, publish 10Hz) = 5Hz, 这是正常的。
+                         #    验收看 rostopic hz: 稳定 ~5Hz 且不积压即可; 明显低于 5Hz 说明更新循环拖了
+transform_tolerance: 0.5  # 坐标变换容忍时间（秒）
+
+static_map: false  # 是否使用静态地图
+rolling_window: true  # 是否使用滚动窗口模式
+width: 3.0  # 地图宽度（米）  原来2.0 → 只有±1.0m, 而TEB的 max_global_plan_lookahead_dist=1.5
+height: 3.0  # 地图高度（米）  看不到1m以外的墙, "提前避障"就无从谈起
+resolution: 0.02  # 地图分辨率（每格代表的实际距离，单位：米）
+
+# ============================================================
+# 保持小! 这个值决定的是"TEB 眼里的障碍物有多厚", 不是"离墙多远"
+# ============================================================
+# TEB 从局部代价地图里取 253/254 的格子当作障碍物点。
+# 这里每调大 1cm, 等于每一面墙在 TEB 眼里向外胖 1cm ——
+# 出发区那种窄地方本来余量就只有几厘米, 一调大就直接顶死, 出不去。
+# "离墙多远"应该交给 teb 的 min_obstacle_dist / inflation_dist 去做。
+inflation_radius: 0.0 # 0.03
+cost_scaling_factor: 3.5

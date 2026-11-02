@@ -1,0 +1,11 @@
+<launch>
+    <node name="abot_vlm_node" pkg="abot_vision" type="vlm_node.py" output="screen">
+        <!-- 调用AI模型Flag -->
+        <param name="im_flog" type="int" value="255" />
+        <!-- 摄像头识别结果 -->
+        <param name="im_flag" type="int" value="255" />
+        <!-- 摄像头识别结果记忆时间 -->
+        <param name="im_flog_memory_time" type="double" value="0" />
+
+    </node>
+</launch>

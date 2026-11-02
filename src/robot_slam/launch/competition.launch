@@ -1,0 +1,61 @@
+<!--
+  ============================================================
+  国青赛无人车视觉巡航 - 一键启动文件
+  ============================================================
+  使用方法:
+    roslaunch robot_slam competition.launch
+
+  可选参数:
+    map_name   - 地图文件名 (默认: my_lab.yaml)
+
+  注意:
+    1. 赛前必须用SLAM建图并保存到 maps/ 目录
+    2. 比赛开始前将机器人放到起点区域
+    3. 启动后等待裁判语音唤醒
+  ============================================================
+-->
+<launch>
+  <!-- ==================== 参数配置 ==================== -->
+  <arg name="map_name"   default="my_lab.yaml" />   <!-- 地图文件 -->
+
+  <!-- ==================== 1. 底盘驱动 ==================== -->
+  <!-- 与 6-mission.sh 保持一致: 走 IMU+轮式里程计融合 (robot_pose_ekf 发 odom→base_footprint,
+       URDF 发 base_footprint→base_link)。不要改回 bringup.launch: 驱动 publish_tf=true
+       会发 odom→base_link, 和 URDF 撞成两个父节点。 -->
+  <include file="$(find abot_bringup)/launch/bringup_with_imu.launch" />
+
+  <!-- ==================== 2. 机器人模型 (TF) ==================== -->
+  <include file="$(find abot_bringup)/launch/model.launch" />
+
+  <!-- ==================== 3. 激光雷达 ==================== -->
+  <include file="$(find abot_bringup)/launch/rplidar.launch" />
+
+  <!-- ==================== 4. 摄像头 ==================== -->
+  <!-- ⚠️ 根据实际摄像头型号选择launch文件 -->
+  <!-- USB摄像头: -->
+  <include file="$(find usb_cam)/launch/usb_cam.launch" />
+  <!-- 如果是其他摄像头, 替换为对应的launch -->
+
+  <!-- ==================== 5. 导航系统 ==================== -->
+  <!-- 5.1 地图服务器 -->
+  <node name="map_server" pkg="map_server" type="map_server"
+        args="$(find robot_slam)/maps/$(arg map_name)" />
+
+  <!-- 5.2 move_base (含TEB局部规划器) -->
+  <include file="$(find robot_slam)/launch/include/move_base.launch.xml" />
+
+  <!-- 5.3 AMCL定位 -->
+  <include file="$(find robot_slam)/launch/include/amcl.launch.xml" />
+
+  <!-- ==================== 6. 语音识别 ==================== -->
+  <include file="$(find abot_sr)/launch/asrpro.launch" />
+
+  <!-- ==================== 7. 视觉识别 ==================== -->
+  <include file="$(find abot_vision)/launch/vlm_node.launch" />
+
+  <!-- ==================== 8. 主控节点 ==================== -->
+  <node name="competition_main" pkg="robot_slam" type="navigation_multi_goals.py"
+        output="screen" respawn="false" required="true">
+  </node>
+
+</launch>

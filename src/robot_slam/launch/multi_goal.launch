@@ -1,0 +1,9 @@
+<launch>
+      <!-- <node name="multi_goal" pkg="robot_slam" type="navigation_multi_goals.py" output="screen"> -->
+      <node name="multi_goal" pkg="robot_slam" type="point_check.py" output="screen">
+      <!-- ⚠️ 点位不在这里配置! navigation_multi_goals.py 根本不读 goalListX/Y/Yaw,
+           真正生效的点位在 scripts/navigation_multi_goals.py 的
+           CompetitionController.__init__ 里 (image_points / task_points / finish_point)。
+           point_check.py 也是 import 同一份定义, 所以【调点位只改那一处】。 -->
+  </node>
+</launch>
